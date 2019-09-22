@@ -10,6 +10,8 @@ public class Cliente {
 	private ObjectOutputStream outputStream;
 
 	private Socket socket;
+
+	static private boolean servidorCorriendo = true;
 	
 	private String host, nick;
 	private int puerto;
@@ -25,33 +27,38 @@ public class Cliente {
 
 		limpiarPantalla();
 
-		System.out.print("Ingrese la IP del servidor: ");
-		String host = sc.nextLine();
-
-		System.out.print("Ingrese el puerto: ");
-		int puerto = sc.nextInt();
-
-		sc.nextLine();
-
 		System.out.print("Ingrese su nick: ");
 		String nick = sc.nextLine();
 
-		limpiarPantalla();
-
-		Cliente cliente = new Cliente(host, puerto, nick);
-
-		if (!cliente.iniciar())
-			return;
-		
 		while (true) {
-			System.out.print("> ");
-			String mensaje = sc.nextLine();
+			System.out.print("Ingrese la IP del servidor: ");
+			String host = sc.nextLine();
 
-			cliente.enviarPaquete(new Paquete(mensaje, cliente.getSocket().getInetAddress(), nick));
+			System.out.print("Ingrese el puerto: ");
+			int puerto = sc.nextInt();
+
+			sc.nextLine();
+
+			limpiarPantalla();
+
+			Cliente cliente = new Cliente(host, puerto, nick);
+
+			if (!cliente.iniciar())
+				return;
+			
+			while (servidorCorriendo) {
+				System.out.print("> ");
+				String mensaje = sc.nextLine();
+
+				cliente.enviarPaquete(new Paquete(mensaje, cliente.getSocket().getInetAddress(), nick));
+			}
+
+			System.out.println("Parece que el servidor " + host + ":" + puerto + " ya no está disponible");
+
+			sc.close();
+			cliente.desconectar();	
 		}
 
-		//sc.close();
-		//cliente.disconnect();	
 	}
 
 	public Socket getSocket() {
@@ -61,45 +68,40 @@ public class Cliente {
 	public boolean iniciar() {
 		try {
 			socket = new Socket(host, puerto);
-		} catch(Exception e) {
-			imprimir("Error: " + e);
+
+			String mensaje = "Conectado con la dirección " + socket.getInetAddress() + ":" + socket.getPort();
+
+			System.out.println(mensaje);
+
+			ClienteListener listener = new ClienteListener();
+
+			listener.start();
+
+			inputStream  = new ObjectInputStream(socket.getInputStream());
+			outputStream = new ObjectOutputStream(socket.getOutputStream());
+
+			outputStream.writeObject(new Paquete("!i", socket.getInetAddress(), nick));
+		} catch (IOException e) {
+			System.out.println("Excepción creado stream o en el login: " + e);
+			desconectar();
+			return false;
+		} catch (NullPointerException e) {
+			System.out.println("Excepción creado stream o en el login: " + e);
+			desconectar();
+			return false;
+		} catch (Exception e) {
 			return false;
 		}
 		
-		String mensaje = "Conectado con la dirección " + socket.getInetAddress() + ":" + socket.getPort();
-		imprimir(mensaje);
-	
-		try {
-			inputStream  = new ObjectInputStream(socket.getInputStream());
-			outputStream = new ObjectOutputStream(socket.getOutputStream());
-		} catch (IOException e) {
-			imprimir("Error: " + e);
-			return false;
-		}
-
-		new ClienteListener().start();
-
-		try {
-			outputStream.writeObject(new Paquete("!i", socket.getInetAddress(), nick));
-		} catch (IOException eIO) {
-			imprimir("Exception doing login : " + eIO);
-			desconectar();
-			return false;
-		}
 
 		return true;
-	}
-
-	private void imprimir(String mensaje) {
-		System.out.println(mensaje);
-		System.out.flush();
 	}
 	
 	void enviarPaquete(Paquete paquete) {
 		try {
 			outputStream.writeObject(paquete);
 		} catch(IOException e) {
-			imprimir("Exception writing to server: " + e);
+			System.out.println("Excepción escribiendo al server: " + e);
 		}
 	}
 
@@ -109,7 +111,7 @@ public class Cliente {
 			if (outputStream != null) outputStream.close();
 			if (socket != null) socket.close();
 		} catch(Exception e) {
-
+			System.out.println("Excepción desconectando: " + e);
 		}
 	}
 
@@ -118,18 +120,30 @@ public class Cliente {
         System.out.flush();
 	}
 
+	class ServidorException extends Exception {
+		public ServidorException(String mensaje) {
+			super(mensaje);
+		}
+	}
+
 	class ClienteListener extends Thread {
 
 		public void run() {
-			while (true) {
+			while (servidorCorriendo) {
 				try {
 					Paquete paquete = (Paquete) inputStream.readObject();
 					System.out.println(paquete.getMensajeFormateado());
 					System.out.print("> ");
-				} catch(IOException e) {
-					imprimir("Servidor has closed the connection: " + e);
+				} catch (IOException e) {
+					System.out.println("Servidor detenido?");
+					servidorCorriendo = false;
+					this.interrupt();
 					break;
-				} catch(ClassNotFoundException e2) {
+				} catch (ClassNotFoundException e) {
+					System.out.println("ClassNotFoundException: " + e);
+				} catch (NullPointerException e) {
+				} catch (Exception e) {
+					System.out.println("Otra Exception: " + e);
 				}
 			}
 		}

@@ -4,6 +4,18 @@
             "type": "java",
             "name": "CodeLens (Launch) - Cliente",
             "request": "launch",
+            "mainClass": "Cliente"
+        },
+        {
+            "type": "java",
+            "name": "CodeLens (Launch) - Servidor",
+            "request": "launch",
+            "mainClass": "Servidor"
+        },
+        {
+            "type": "java",
+            "name": "CodeLens (Launch) - Cliente",
+            "request": "launch",
             "mainClass": "Cliente",
             "projectName": "Chat-Server_352b0c86"
         },

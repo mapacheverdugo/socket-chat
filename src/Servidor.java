@@ -3,7 +3,6 @@ import java.net.*;
 import java.util.*;
 
 public class Servidor {
-	private static int uniqueId;
 	private ArrayList<ClienteThread> clientes;
 	private int puerto;
 	private boolean seguir;
@@ -50,7 +49,7 @@ public class Servidor {
 			
 			serverSocket.close();
 
-			for (int i = 0; i < clientes.size(); ++i) {
+			for (int i = 0; i < clientes.size(); i++) {
 				ClienteThread actual = clientes.get(i);
 				actual.inputStream.close();
 				actual.outputStream.close();
@@ -75,7 +74,7 @@ public class Servidor {
 		
 		System.out.println(paquete.getMensajeFormateado());
 
-		for (int i = clientes.size(); --i >= 0;) {
+		for (int i = clientes.size() - 1; i >= 0; i--) {
 			ClienteThread actual = clientes.get(i);
 			if (!actual.enviarPaquete(paquete)) {
 				clientes.remove(i);
@@ -83,14 +82,12 @@ public class Servidor {
 		}
 	}
 
-	synchronized void logout(int id) {
-		String nick = "";
+	synchronized void logout(String nick) {
 		InetAddress host = null;
 
-		for (int i = 0; i < clientes.size(); ++i) {
+		for (int i = 0; i < clientes.size(); i++) {
 			ClienteThread actual = clientes.get(i);
-			if (actual.id == id) {
-				nick = actual.getNick();
+			if (actual.nick == nick) {
 				host = actual.getSocket().getInetAddress();
 				clientes.remove(i);
 			}
@@ -103,12 +100,10 @@ public class Servidor {
 		ObjectInputStream inputStream;
 		ObjectOutputStream outputStream;
 
-		int id;
 		String nick;
 		Paquete paquete;
 	
 		ClienteThread(Socket socket) {
-			id = ++uniqueId;
 			this.socket = socket;
 
 			try {
@@ -127,12 +122,7 @@ public class Servidor {
 
 		public Socket getSocket() {
 			return socket;
-		}
-	
-		public void setNick(String nick) {
-			this.nick = nick;
-		}
-	
+		}	
 		
 		public void run() {
 			boolean estaConectado = true;
@@ -143,28 +133,29 @@ public class Servidor {
 					if (paquete.esComandoONotificacion() && paquete.getMensaje() == "!q") {
 						estaConectado = false;
 					}
+					nick = paquete.getNick();
 					enviarATodos(paquete);
 					
 				} catch (IOException e) {
-					System.out.println(e);
+					estaConectado = false;
 				} catch (ClassNotFoundException e) {
-					System.out.println(e);
+					System.out.println("Error corriendo el thread" + e);
+				} catch (Exception e) {
+					System.out.println("Otra Excepction corriendo el thread" + e);
 				}
 			}
-			logout(id);
+			logout(nick);
 			cerrar();
 		}
 
 		private void cerrar() {
 			try {
-				if(outputStream != null) outputStream.close();
-			} catch(Exception e) {}
-			try {
-				if(inputStream != null) inputStream.close();
-			} catch(Exception e) {};
-			try {
-				if(socket != null) socket.close();
-			} catch (Exception e) {}
+				if (outputStream != null) outputStream.close();
+				if (inputStream != null) inputStream.close();
+				if (socket != null) socket.close();				
+			} catch (Exception e) {
+				System.out.println(e);
+			}
 		}
 	
 		public boolean enviarPaquete(Paquete paquete) {
@@ -176,7 +167,7 @@ public class Servidor {
 			try {
 				outputStream.writeObject(paquete);
 			} catch (IOException e) {
-				logout(id);
+				logout(paquete.getNick());
 			}
 			return true;
 		}
