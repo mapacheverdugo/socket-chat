@@ -1,3 +1,4 @@
+package app;
 
 import java.io.*;
 import java.net.InetAddress;
@@ -34,14 +35,10 @@ public class Paquete implements Serializable {
 	}
 
 	public String getMensajeFormateado() {
-		if (esComandoONotificacion) {
-			if (mensaje.startsWith("!i")) {
-				return "[" + fecha + "] *** " + nick + " (" + host + ") se unió a la conversación" + " ***";
-			} else if (mensaje == "!q") {
-				return "[" + fecha + "] *** " + nick + " (" + host + ") ha salido de la conversación" + " ***";
-			} else {
-				return mensaje;
-			}
+		if (mensaje.startsWith("!i")) {
+			return "[" + fecha + "] *** " + nick + " (" + host + ") se unió a la conversación" + " ***";
+		} else if (mensaje.startsWith("!q")) {
+			return "[" + fecha + "] *** " + nick + " (" + host + ") ha salido de la conversación" + " ***";
 		} else {
 			return "[" + fecha + "] (" + host + ") " + nick + ": " + mensaje;
 		}

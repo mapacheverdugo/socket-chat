@@ -1,3 +1,4 @@
+package app;
 
 import java.net.*;
 import java.io.*;
@@ -12,9 +13,11 @@ public class Cliente {
 	private Socket socket;
 
 	static private boolean servidorCorriendo = true;
+	static private boolean estaDesconectado = false;
 	
 	private String host, nick;
 	private int puerto;
+	
 	
 	Cliente(String host, int puerto, String nick) {
 		this.host = host;
@@ -30,7 +33,7 @@ public class Cliente {
 		System.out.print("Ingrese su nick: ");
 		String nick = sc.nextLine();
 
-		while (true) {
+		while (!estaDesconectado) {
 			System.out.print("Ingrese la IP del servidor: ");
 			String host = sc.nextLine();
 
@@ -41,7 +44,11 @@ public class Cliente {
 
 			limpiarPantalla();
 
+			servidorCorriendo = true;
+
 			Cliente cliente = new Cliente(host, puerto, nick);
+
+			
 
 			if (!cliente.iniciar())
 				return;
@@ -50,12 +57,23 @@ public class Cliente {
 				System.out.print("> ");
 				String mensaje = sc.nextLine();
 
+				if (mensaje.startsWith("!q")) {
+					//sc.close();
+					cliente.desconectar();
+					estaDesconectado = true;
+					break;
+				}
+
 				cliente.enviarPaquete(new Paquete(mensaje, cliente.getSocket().getInetAddress(), nick));
+			}
+
+			if (estaDesconectado) {
+				break;
 			}
 
 			System.out.println("Parece que el servidor " + host + ":" + puerto + " ya no está disponible");
 
-			sc.close();
+			//sc.close();
 			cliente.desconectar();	
 		}
 
@@ -98,18 +116,21 @@ public class Cliente {
 	}
 	
 	void enviarPaquete(Paquete paquete) {
-		try {
-			outputStream.writeObject(paquete);
-		} catch(IOException e) {
-			System.out.println("Excepción escribiendo al server: " + e);
+		if (servidorCorriendo) {
+			try {
+				outputStream.writeObject(paquete);
+			} catch(IOException e) {
+				System.out.println("Excepción escribiendo al server: " + e);
+			}
 		}
+		
 	}
 
 	private void desconectar() {
 		try { 
 			if (inputStream != null) inputStream.close();
 			if (outputStream != null) outputStream.close();
-			if (socket != null) socket.close();
+			if (socket != null && !socket.isClosed()) socket.close();
 		} catch(Exception e) {
 			System.out.println("Excepción desconectando: " + e);
 		}
@@ -135,9 +156,10 @@ public class Cliente {
 					System.out.println(paquete.getMensajeFormateado());
 					System.out.print("> ");
 				} catch (IOException e) {
-					System.out.println("Servidor detenido?");
+					//System.out.println("Servidor detenido?");
 					servidorCorriendo = false;
 					this.interrupt();
+
 					break;
 				} catch (ClassNotFoundException e) {
 					System.out.println("ClassNotFoundException: " + e);
